@@ -1,0 +1,88 @@
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    container_name: aegis-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: aegis123
+      MONGO_INITDB_DATABASE: aegis_net
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - aegis-network
+
+  # FastAPI AI/ML Service
+  ai-service:
+    build:
+      context: ./python-service
+      dockerfile: Dockerfile
+    container_name: aegis-ai-service
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGODB_URL=mongodb://admin:aegis123@mongodb:27017/aegis_net?authSource=admin
+      - NASA_API_KEY=${NASA_API_KEY:-DEMO_KEY}
+    depends_on:
+      - mongodb
+    volumes:
+      - ./python-service:/app
+    networks:
+      - aegis-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Next.js Frontend
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aegis-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URL=mongodb://admin:aegis123@mongodb:27017/aegis_net?authSource=admin
+      - AI_SERVICE_URL=http://ai-service:8000
+      - NASA_API_KEY=${NASA_API_KEY:-DEMO_KEY}
+    depends_on:
+      - mongodb
+      - ai-service
+    volumes:
+      - .:/app
+      - /app/node_modules
+    networks:
+      - aegis-network
+
+  # Redis for caching (optional)
+  redis:
+    image: redis:7-alpine
+    container_name: aegis-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - aegis-network
+
+volumes:
+  mongodb_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  aegis-network:
+    driver: bridge
