@@ -51,7 +51,7 @@ AEGIS NET (Asteroid Emergency Guidance and Information System Network) provides 
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/yourusername/nasaProject.git
+https://github.com/The-Astro-Morphers/AEGIS_NET.git
 cd nasaProject
 ```
 
